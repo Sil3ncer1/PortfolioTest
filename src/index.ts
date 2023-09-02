@@ -3,6 +3,7 @@ import { GreaterEqualDepth, Vector2 } from "three"
 
 import { MapControls, OrbitControls } from "three/examples/jsm/controls/OrbitControls"
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader'
+import { RectAreaLightHelper } from 'three/examples/jsm//helpers/RectAreaLightHelper.js';
 
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
@@ -11,6 +12,10 @@ import grassUrl from "./assets/models/grass.fbx"
 import triangleUrl from "./assets/models/triangle.fbx"
 import blenderUrl from "./assets/models/blender.fbx"
 import pillerUrl from "./assets/models/piller.fbx"
+
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+
+import cloudUrl from "./assets/textures/clouds.png"
 
 import { Grass } from "./grass"
 
@@ -31,6 +36,10 @@ let selectedObjects: THREE.Object3D[] = [];
 let outlinePass: OutlinePass;
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+let tex = new THREE.Texture;
+let cloudMesh = new THREE.Mesh;
+cloudMesh.material = new THREE.MeshDepthMaterial();
+
 
 init()
 setTimeout( function() { animate(); }, 100 );
@@ -39,7 +48,7 @@ setTimeout( function() { animate(); }, 100 );
 function init() {
 
     let screenResolution = new Vector2( window.innerWidth, window.innerHeight);
-    let renderResolution = screenResolution.clone().divideScalar(4);
+    let renderResolution = screenResolution.clone().divideScalar(5);
     renderResolution.x |= 0;
     renderResolution.y |= 0;
     let aspectRatio = screenResolution.x / screenResolution.y;
@@ -59,14 +68,14 @@ function init() {
 
     composer = new EffectComposer(renderer);
     
-    // composer.addPass( new RenderPass( scene, camera ) )
+    //composer.addPass( new RenderPass( scene, camera ) )
     composer.addPass( new RenderPixelatedPass(renderResolution, scene, camera ));
 
     outlinePass = new OutlinePass( new THREE.Vector2( window.innerWidth, window.innerHeight ), scene, camera );
 	outlinePass.edgeStrength = 10;
     outlinePass.edgeGlow = 1;
     outlinePass.pulsePeriod = 5;
-    outlinePass.visibleEdgeColor = new THREE.Color(0xaaaaaa)
+    outlinePass.visibleEdgeColor = new THREE.Color(0xaaaaaa);
     composer.addPass(outlinePass );
 
     let bloomPass = new UnrealBloomPass( screenResolution, .4, .1, .9 );
@@ -74,31 +83,53 @@ function init() {
     composer.addPass(new PixelatePass(renderResolution));
     
     controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 0, 0 );
-    camera.position.z = 4;
-    camera.position.y = 6 * Math.tan(Math.PI / 6 );
+    controls.target.set(0, 0.65, 0 );
+    camera.position.z = 3;
+    camera.position.y = 7 * Math.tan(Math.PI / 6 );
     controls.update();
-     controls.minPolarAngle = controls.maxPolarAngle = controls.getPolarAngle()
-
+    //controls.minPolarAngle = controls.maxPolarAngle = controls.getPolarAngle();
 
     renderer.domElement.style.touchAction = 'none';
 	renderer.domElement.addEventListener('pointermove', onPointerMove );
 
 
+    tex = new THREE.TextureLoader().load(cloudUrl);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set( 10, 10 );
+    
+    let material = new THREE.MeshBasicMaterial({
+        color: 0x00FF00,
+        side:2,
+        transparent: true,
+        opacity:0
+        });
+
+    cloudMesh = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), material)
+        cloudMesh.customDepthMaterial = new THREE.MeshDepthMaterial( {
+            depthPacking: THREE.RGBADepthPacking,
+            map: tex,
+            alphaTest: 0.5
+        } );
+    cloudMesh.rotateX(Math.PI/2);
+    cloudMesh.position.set(0, 10, 0);
+    cloudMesh.castShadow = true;
+
+
+
+    scene.add(cloudMesh);
+
     // Geometry
 
-    let GrassMaterial = new THREE.MeshPhongMaterial({
+    let GrassMaterial = new THREE.MeshStandardMaterial({
         side: THREE.FrontSide,
         color: 0x228822,
-        specular:0,
-        reflectivity : 0,
-        shininess :0
          // Render both sides of the plane
     });
 
     // Grass Plane
     {
-        const fbxLoader = new FBXLoader()
+        const fbxLoader = new FBXLoader();
         fbxLoader.load(grassUrl, obj => {
             obj.traverse(child => {
                 // @ts-ignore
@@ -113,7 +144,7 @@ function init() {
     }
 
     {
-        const fbxLoader = new FBXLoader()
+        const fbxLoader = new FBXLoader();
         fbxLoader.load(blenderUrl, obj => {
             obj.traverse(child => {
                 // @ts-ignore
@@ -130,7 +161,7 @@ function init() {
     
     
     {
-        const fbxLoader = new FBXLoader()
+        const fbxLoader = new FBXLoader();
         fbxLoader.load( pillerUrl, obj => {
             obj.traverse( child => {
                 // @ts-ignore
@@ -146,7 +177,7 @@ function init() {
 
     {
         
-        const fbxLoader = new FBXLoader()
+        const fbxLoader = new FBXLoader();
         fbxLoader.load( triangleUrl, obj => {
             obj.traverse( child => {
                 // @ts-ignore
@@ -167,22 +198,24 @@ function init() {
     // Lights
 
 
-    scene.add( new THREE.AmbientLight( 0x2d3645, 0.1 ) )
+    scene.add( new THREE.AmbientLight( 0x2d3645, 0.6 ) );
     
-    let directionalLight = new THREE.DirectionalLight( 0x4444aa, 0.7 )
-    directionalLight.position.set( 100, 100, 100 )
-    directionalLight.castShadow = true
-    // directionalLight.shadow.radius = 0
-    directionalLight.shadow.mapSize.set( 2048, 2048 )
-    scene.add( directionalLight )
+    let directionalLight = new THREE.DirectionalLight( 0x4444aa, 0.2 );
+    directionalLight.position.set( 100, 100, 100 );
+    directionalLight.castShadow = true;
+    // directionalLight.shadow.radius = 0;
+    directionalLight.shadow.mapSize.set( 2048, 2048 );
+    directionalLight.shadow.bias = -0.0003;
+    scene.add( directionalLight );
 
     pointlightOutline = new THREE.PointLight(0xffffff,0);
-    pointlightOutline.distance =0.8;
+    pointlightOutline.distance =1;
     scene.add(pointlightOutline);
 
     pointLightBlender = new THREE.PointLight(0xffaa00,0.2);
     pointLightBlender.distance = 1;
     scene.add(pointLightBlender);
+
 
 }
 
@@ -235,11 +268,15 @@ function checkIntersection() {
 
 function animate() {
     requestAnimationFrame( animate )
-    let t = performance.now() / 1000
+    let t = performance.now() / 1000;
+    tex.offset = new THREE.Vector2(t/70,t/70)
+    cloudMesh.customDepthMaterial = new THREE.MeshDepthMaterial( {
+        depthPacking: THREE.RGBADepthPacking,
+        map: tex,
+        alphaTest: 0.5
+    } );
 
-    
-
-    grassPlane.resampleParticle(camera)
+    grassPlane.resampleParticle(camera);
 
     let mat = ( logo.material as THREE.MeshPhongMaterial )
     mat.emissiveIntensity = Math.sin( t * 3 ) * .5 + .5
