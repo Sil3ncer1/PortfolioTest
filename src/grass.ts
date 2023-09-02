@@ -3,7 +3,7 @@ import * as THREE from 'three';
 
 import { MeshSurfaceSampler } from 'three/examples/jsm/math/MeshSurfaceSampler';
 class Grass extends THREE.Group {
-
+    
     instances: number;
     plane : THREE.Object3D 
     triangle : THREE.Mesh;
@@ -13,6 +13,7 @@ class Grass extends THREE.Group {
     _positionx: number[];
     _positiony: number[];
     _positionz: number[];
+
 
     GrassMaterial: THREE.MeshPhongMaterial;
 
@@ -25,6 +26,13 @@ class Grass extends THREE.Group {
         this.dummy = new THREE.Object3D;
         this.triangle = triangle;
         this.triangle.geometry.rotateX(-Math.PI /2)
+        triangle.geometry.computeVertexNormals();
+        triangle.geometry.attributes.normal.needsUpdate = true;
+        triangle.geometry.getAttribute('normal');
+        this.setNormal(triangle.geometry, 0);
+        this.setNormal(triangle.geometry, 1);
+        this.setNormal(triangle.geometry, 2);
+
         this.GrassMaterial = new THREE.MeshPhongMaterial({
             side: THREE.DoubleSide,
             vertexColors: true,
@@ -32,13 +40,6 @@ class Grass extends THREE.Group {
             reflectivity: 0,
             shininess:0
         });
-
-        triangle.geometry.computeVertexNormals();
-        triangle.geometry.attributes.normal.needsUpdate = true;
-        triangle.geometry.getAttribute('normal');
-        this.setNormal(triangle.geometry, 0);
-        this.setNormal(triangle.geometry, 1);
-        this.setNormal(triangle.geometry, 2);
 
 
         this.sampler = new MeshSurfaceSampler( plane )
@@ -105,5 +106,6 @@ class Grass extends THREE.Group {
 
 
 }
+
 
 export { Grass };
